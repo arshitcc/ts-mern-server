@@ -4,6 +4,8 @@ import cors from "cors";
 import connectDB from "./db/db";
 import cookieParser from "cookie-parser";
 import morganMiddleware from "./loggers/morgan.logger";
+import logger from "./loggers/winston.logger";
+import { errorHandler } from "./middlewares/error.middleware";
 
 dotenv.config({
   path: "./.env",
@@ -38,9 +40,11 @@ app.use("/api/v1/auth", authRouter);
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      logger.info("⚙️  Server is running on PORT: " + process.env.PORT);
     });
   })
-  .catch(() => {
-    console.log("Error connecting to database");
+  .catch((error) => {
+    logger.error("MongoDB Connection Error: ", error);
   });
+
+app.use(errorHandler);

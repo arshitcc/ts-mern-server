@@ -7,6 +7,7 @@ import {
 } from "./env";
 
 import MailGen, { Content } from "mailgen";
+import logger from "../loggers/winston.logger";
 
 interface EmailVerificationTemplate {
   username: string;
@@ -106,7 +107,11 @@ const sendEmail = async (mailConfig: MailConfig) => {
       As sending email is not strongly coupled to the business logic it is not worth to raise an error when email sending fails
       So it's better to fail silently rather than breaking the app
     */
-    console.log(error);
+
+    logger.error(
+      "Email service failed silently. Make sure you have provided your MAILTRAP credentials in the .env file"
+    );
+    logger.error("Error: ", error);
   }
 };
 

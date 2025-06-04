@@ -1,4 +1,4 @@
-import { NextFunction, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { CustomRequest, IUser, User } from "../models/user.models";
 import asyncHandler from "../utils/async-handler";
@@ -56,5 +56,18 @@ const verifyPermission = (roles: string[] = []) =>
       }
     },
   );
+
+export const avoidInProduction = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    if (process.env.NODE_ENV === "development") {
+      next();
+    } else {
+      throw new ApiError(
+        403,
+        "This service is only available in the local environment.",
+      );
+    }
+  },
+);
 
 export { authenticateUser, verifyPermission };

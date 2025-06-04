@@ -1,5 +1,5 @@
 import winston from "winston";
-import { NODE_ENV } from "../utils/env";
+import { MONGODB_NAME, NODE_ENV } from "../utils/env";
 
 const { combine, timestamp, json, label, printf, colorize } = winston.format;
 
@@ -14,13 +14,13 @@ const levels = {
 };
 
 const productionFormat = combine(
-  label({ label: "API-Production" }),
+  label({ label: MONGODB_NAME?.toUpperCase() + "-PRODUCTION" }),
   timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
   json(),
 );
 
 const developmentFormat = combine(
-  label({ label: "API-Development" }),
+  label({ label: MONGODB_NAME?.toUpperCase() + "-DEVELOPMENT" }),
   timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
   json(),
   colorize({
