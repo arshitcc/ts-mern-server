@@ -2,7 +2,6 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { CustomRequest, IUser, User } from "../models/user.models";
 import asyncHandler from "../utils/async-handler";
-import { ApiResponse } from "../utils/api-response";
 import { ACCESS_TOKEN_SECRET } from "../utils/env";
 import { ApiError } from "../utils/api-error";
 
@@ -12,10 +11,8 @@ const authenticateUser = asyncHandler(
       req.cookies?.accessToken ||
       req.headers.authorization?.replace("Bearer ", "");
 
-    if (!token.trim()) {
-      return res
-        .status(400)
-        .json(new ApiResponse(401, false, "Unauthorized Token"));
+    if (!token?.trim()) {
+      throw new ApiError(401, "Unauthorized request");
     }
 
     const decodedToken = jwt.verify(token, ACCESS_TOKEN_SECRET!) as {
@@ -23,9 +20,7 @@ const authenticateUser = asyncHandler(
     };
 
     if (!decodedToken) {
-      return res
-        .status(400)
-        .json(new ApiResponse(401, false, "Unauthorized Token"));
+      throw new ApiError(401, "Unauthorized Token");
     }
 
     const user = await User.findById<IUser>(decodedToken._id).select(
@@ -33,9 +28,7 @@ const authenticateUser = asyncHandler(
     );
 
     if (!user) {
-      return res
-        .status(400)
-        .json(new ApiResponse(404, false, "User not found"));
+      throw new ApiError(404, "Account doesn't exist");
     }
 
     req.user = user;

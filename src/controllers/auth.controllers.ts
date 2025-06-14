@@ -81,10 +81,10 @@ const userRegister = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const userLogin = asyncHandler(async (req: Request, res: Response) => {
-  const { username, email, password } = req.body;
+  const { user, password } = req.body;
 
   const existedUser = await User.findOne<IUser>({
-    $or: [{ username }, { email }],
+    $or: [{ username: user }, { email: user }],
   });
 
   if (!existedUser) {
@@ -111,7 +111,7 @@ const userLogin = asyncHandler(async (req: Request, res: Response) => {
     existedUser,
   );
 
-  const user = await User.findOne({ _id: existedUser._id }).select(
+  const loggedInUser = await User.findOne({ _id: existedUser._id }).select(
     "-password -refreshToken -emailVerificationToken -emailVerificationExpiry -forgotPasswordToken -forgotPasswordExpiry",
   );
 
@@ -125,7 +125,14 @@ const userLogin = asyncHandler(async (req: Request, res: Response) => {
     .status(200)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
-    .json(new ApiResponse(200, true, "User Authenticated Successfully", user));
+    .json(
+      new ApiResponse(
+        200,
+        true,
+        "User Authenticated Successfully",
+        loggedInUser,
+      ),
+    );
 });
 
 const userLogout = asyncHandler(async (req: CustomRequest, res: Response) => {
@@ -158,7 +165,7 @@ const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(400, "Email verification token is missing");
   }
 
-  let hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+  let hashedToken = crypto.createHash("sha512").update(token).digest("hex");
 
   const user = await User.findOne({
     emailVerificationToken: hashedToken,
@@ -239,6 +246,10 @@ const updateRefreshAndAccessToken = asyncHandler(
       _id: string;
     };
 
+    if (!decodedToken) {
+      throw new ApiError(401, "Unauthorized Token");
+    }
+
     const user = await User.findOne({
       _id: decodedToken._id,
       refreshToken,
@@ -266,25 +277,27 @@ const updateRefreshAndAccessToken = asyncHandler(
 
 const forgotPasswordRequest = asyncHandler(
   async (req: Request, res: Response) => {
-    const { email } = req.body;
+    const { user } = req.body;
 
-    const user = await User.findOne({ email });
+    const existingUser = await User.findOne({
+      $or: [{ email: user }, { username: user }],
+    });
 
-    if (!user) {
+    if (!existingUser) {
       throw new ApiError(404, "Account doesn't exists");
     }
 
     const { unHashedToken, hashedToken, tokenExpiry } =
-      user.generateTemporaryToken();
-    user.forgotPasswordToken = hashedToken;
-    user.forgotPasswordExpiry = tokenExpiry;
-    await user.save({ validateBeforeSave: false });
+      existingUser.generateTemporaryToken();
+    existingUser.forgotPasswordToken = hashedToken;
+    existingUser.forgotPasswordExpiry = tokenExpiry;
+    await existingUser.save({ validateBeforeSave: false });
 
     await sendEmail({
-      email,
+      email: existingUser.email,
       subject: "Password Reset",
       template: resetPasswordTemplate({
-        username: user.username,
+        username: existingUser.username,
         resetPasswordToken: unHashedToken,
       }),
     });
@@ -306,7 +319,7 @@ const resetForgottenPassword = asyncHandler(
     const token = typeof req.query.token === "string" ? req.query.token : "";
     const { newPassword } = req.body;
 
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    const hashedToken = crypto.createHash("sha512").update(token).digest("hex");
     const user = await User.findOne({
       forgotPasswordToken: hashedToken,
       forgotPasswordExpiry: { $gt: Date.now() },
@@ -335,6 +348,13 @@ const changeCurrentPassword = asyncHandler(
   async (req: CustomRequest, res: Response) => {
     const { oldPassword, newPassword } = req.body;
 
+    if (oldPassword === newPassword) {
+      throw new ApiError(
+        400,
+        "New password can't be same as Old password. Try Something New!",
+      );
+    }
+
     const exisitingUser = await User.findById(req.user._id);
     if (!exisitingUser) {
       throw new ApiError(401, "Invalid Account");
@@ -355,18 +375,18 @@ const changeCurrentPassword = asyncHandler(
   },
 );
 
-const assignRole = asyncHandler(async (req: Request, res: Response) => {
+const assignRole = asyncHandler(async (req: CustomRequest, res: Response) => {
   const { userId } = req.params;
   const { role } = req.body;
 
-  if (!AvailableUserRoles.includes(role)) {
-    throw new ApiError(400, "Invalid Role");
+  if (userId === req.user._id) {
+    throw new ApiError(400, "You can't assign your own role");
   }
 
   const user = await User.findById(userId);
 
   if (!user) {
-    throw new ApiError(404, "User does not exist");
+    throw new ApiError(404, "Account doesn't exist");
   }
   user.role = role;
   await user.save({ validateBeforeSave: false });
@@ -378,7 +398,9 @@ const assignRole = asyncHandler(async (req: Request, res: Response) => {
 
 const getCurrentUser = asyncHandler(
   async (req: CustomRequest, res: Response) => {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select(
+      "-password -refreshToken -emailVerificationToken -emailVerificationExpiry -forgotPasswordToken -forgotPasswordExpiry",
+    );
     if (!user) {
       throw new ApiError(404, "User does not exist");
     }

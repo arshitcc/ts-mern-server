@@ -4,6 +4,7 @@ import {
   MAILTRAP_SMTP_PORT,
   MAILTRAP_SMTP_USERNAME,
   MAILTRAP_SMTP_PASSWORD,
+  CLIENT_URL,
 } from "./env";
 
 import MailGen, { Content } from "mailgen";
@@ -39,7 +40,7 @@ const emailVerificationTemplate = ({
         button: {
           color: "#22BC66",
           text: "Verify your email",
-          link: `http://localhost:5173/verify?token=${emailVerificationToken}`,
+          link: `${CLIENT_URL}/verify?token=${emailVerificationToken}`,
         },
       },
       outro:
@@ -62,7 +63,7 @@ const resetPasswordTemplate = ({
         button: {
           color: "#D9534F",
           text: "Reset Your Password",
-          link: `http://localhost:5173/forgot-password?token=${resetPasswordToken}`,
+          link: `${CLIENT_URL}/reset-password?token=${resetPasswordToken}`,
         },
       },
       outro:
@@ -109,7 +110,7 @@ const sendEmail = async (mailConfig: MailConfig) => {
     */
 
     logger.error(
-      "Email service failed silently. Make sure you have provided your MAILTRAP credentials in the .env file"
+      "Email service failed silently. Make sure you have provided your MAILTRAP credentials in the .env file",
     );
     logger.error("Error: ", error);
   }
